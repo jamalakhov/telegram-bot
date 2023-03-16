@@ -34,4 +34,27 @@ public class Keyboards {
 
         return keyboard;
     }
+
+    public static InlineKeyboardMarkup menuKeyboard() {
+        return keyboardWitchOneRowAndOneButtonIn("Меню", "/menu");
+    }
+
+    public static InlineKeyboardMarkup registrationKeyboard() {
+        return keyboardWitchOneRowAndOneButtonIn("Регистрация", "/registration");
+    }
+
+    public static InlineKeyboardMarkup keyboardWitchOneRowAndOneButtonIn(String text, String callbackData) {
+        InlineKeyboardMarkup keyboard = new InlineKeyboardMarkup();
+        var rows = new ArrayList<List<InlineKeyboardButton>>();
+
+        var row = new ArrayList<InlineKeyboardButton>();
+        var button = new InlineKeyboardButton(text);
+        button.setCallbackData(callbackData);
+        row.add(button);
+
+        rows.add(row);
+        keyboard.setKeyboard(rows);
+
+        return keyboard;
+    }
 }

@@ -1,40 +1,29 @@
 package ru.malakhov.telegrambot.handler;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.objects.Update;
-import ru.malakhov.telegrambot.bot.TelegramBot;
-import ru.malakhov.telegrambot.storage.BotStorage;
+import ru.malakhov.telegrambot.bot.BotSession;
 
+@Slf4j
 @Component
-public class MessageHandler {
-    private TelegramBot bot;
-    private final BotStorage botStorage;
-    private final TextHandler textHandler;
-    private final CommandHandler commandHandler;
-
-
+public class MessageHandler extends AbstractHandler {
     public MessageHandler(CommandHandler commandHandler,
-                          BotStorage botStorage, TextHandler textHandler) {
-        this.commandHandler = commandHandler;
-        this.botStorage = botStorage;
-        this.textHandler = textHandler;
+                          TextHandler textHandler) {
+        super(textHandler, commandHandler);
     }
 
-    public void init(TelegramBot bot) {
-        this.bot = bot;
-    }
-
-    public void handling(Update update) {
-        SendMessage message;
-        var inputText = update.getMessage().getText().split(" ")[0];
+    @Override
+    public void handling(BotSession botSession) {
+        SendMessage response;
+        var inputText = botSession.getMessage().getText().split(" ")[0];
 
         if (inputText.startsWith("/")) {
-            message = commandHandler.handling(update, botStorage);
+            botSession.setBotCommand(inputText);
+            response = commandHandler.handling(botSession);
         } else {
-            message = textHandler.handling(update, botStorage);
+            response = textHandler.handling(botSession);
         }
-
-        bot.sendingMessage(message);
+        bot.sendingMessage(response);
     }
 }

@@ -2,9 +2,9 @@ package ru.malakhov.telegrambot.handler;
 
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.api.objects.User;
+import ru.malakhov.telegrambot.bot.BotSession;
 import ru.malakhov.telegrambot.bot.enums.BotState;
+import ru.malakhov.telegrambot.kyeboard.Keyboards;
 import ru.malakhov.telegrambot.storage.BotStorage;
 import ru.malakhov.telegrambot.util.BotUtil;
 
@@ -14,46 +14,90 @@ import static ru.malakhov.telegrambot.bot.enums.BotState.*;
 
 @Component
 public class CommandHandler {
-    private BotStorage botStorage;
+    private final BotStorage botStorage;
 
-    public SendMessage handling(Update update, BotStorage botStorage) {
+    public CommandHandler(BotStorage botStorage) {
         this.botStorage = botStorage;
+    }
 
-        var text = BotUtil.getText(update);
+    public SendMessage handling(BotSession botSession) {
+        var command = botSession.getBotCommand().trim().split(" ")[0];
 
-        return switch (text) {
-            case "/start" -> startCommand(update);
-            case "/help" -> helpCommand(update);
-            case "/confirm" -> confirmCommand(update);
-            case "/change" -> changeCommand(update);
-            case "/cancel" -> cancelCommand(update);
-            case "/registration" -> registrationCommand(update);
-            default -> errorCommand(update);
+        return switch (command) {
+            case "/start" -> startCommand(botSession);
+            case "/help" -> helpCommand(botSession);
+            case "/confirm" -> confirmCommand(botSession);
+            case "/change" -> changeCommand(botSession);
+            case "/cancel" -> cancelCommand(botSession);
+            case "/registration" -> registrationCommand(botSession);
+            default -> errorCommand(botSession);
         };
     }
 
-    private SendMessage cancelCommand(Update update) {
-        var user = BotUtil.getUser(update);
-        var session = botStorage.getSession(user.getId());
-        var botUser = session.getBotUser();
 
-        if (botUser.isRegistration()) {
+    private SendMessage startCommand(BotSession session) {
+        var message = "";
+        var response = BotUtil.createDefaultSendMessage(session.getId(), message);
+
+        if (session.getBotUser().isRegistration()) {
+            message = session.getBotUser().getFirstName() + ", рад вас видеть!";
+            response.setReplyMarkup(Keyboards.menuKeyboard());
+
+        } else {
+            message = "Чтобы воспользоваться ботом пройдите регистрацию";
+            response.setReplyMarkup(Keyboards.registrationKeyboard());
+        }
+
+        response.setText(message);
+        return response;
+    }
+
+    private SendMessage registrationCommand(BotSession session) {
+        var message = "";
+        var response = BotUtil.createDefaultSendMessage(session.getId(), message);
+
+        if (session.getBotUser().isRegistration()) {
+            message = "Вы уже зарегистрированы";
+        } else {
+            session.setState(BotState.ENTER_EMAIL);
+            botStorage.saveSession(session);
+            message = "Введите свой email";
+        }
+
+        response.setText(message);
+        return response;
+    }
+
+    private SendMessage helpCommand(BotSession session) {
+        var message = """
+                Список доступных команд:
+                                
+                /start - начать работу с ботом
+                /help - показать список команд
+                /registration - регистрация в боте"
+                                
+                Чтобы воспользоваться полным функционалом
+                бота пройдите регистрацию.
+                """;
+
+        return BotUtil.createDefaultSendMessage(session.getId(), message);
+    }
+
+    private SendMessage cancelCommand(BotSession session) {
+        var message = "Действие отменено";
+
+        if (session.getBotUser().isRegistration()) {
             session.setState(MAIN);
         } else {
             session.setState(START);
         }
 
         botStorage.saveSession(session);
-
-        return SendMessage.builder()
-                .chatId(botUser.getId())
-                .text("Действие отменено")
-                .build();
+        return BotUtil.createDefaultSendMessage(session.getId(), message);
     }
 
-    private SendMessage changeCommand(Update update) {
-        var user = BotUtil.getUser(update);
-        var session = botStorage.getSession(user.getId());
+    private SendMessage changeCommand(BotSession session) {
+        var message = "Введите свой email";
         var botUser = session.getBotUser();
 
         botUser.setPhoneNumber(null);
@@ -65,100 +109,29 @@ public class CommandHandler {
         session.setBotUser(botUser);
         botStorage.saveSession(session);
 
-        return SendMessage.builder()
-                .chatId(botUser.getId())
-                .text("Введите свой email")
-                .build();
+        return BotUtil.createDefaultSendMessage(session.getId(), message);
     }
 
-    private SendMessage confirmCommand(Update update) {
-        var user = BotUtil.getUser(update);
-        var session = botStorage.getSession(user.getId());
+    private SendMessage confirmCommand(BotSession session) {
+        var message = "Ваши данные успешно добавлены";
         var botUser = session.getBotUser();
 
         botUser.setRegistration(true);
         botStorage.saveBotUser(botUser);
 
-        session.setState(BotState.MAIN);
+        session.setState(MAIN);
+        session.setBotUser(botUser);
         session.setDateCreate(LocalDateTime.now());
         botStorage.saveSession(session);
-        //А BotUser сохраняем в базу
 
-        return SendMessage.builder()
-                .chatId(botUser.getId())
-                .text("Ваши данные успешно добавлены")
-                .build();
-    }
-
-    private SendMessage startCommand(Update update) {
-        var chat = BotUtil.getChat(update);
-        var user = BotUtil.getUser(update);
-        var response = SendMessage.builder()
-                .chatId(chat.getId())
-                .text("")
-                .build();
-
-        if (botStorage.containsBotUser(user.getId())) {
-            BotUtil.sessionValidate(update, botStorage);
-
-            response.setText(user.getFirstName() + ", с возвращением!");
-            return response;
-        }
-
-        var botUser = BotUtil.botUserValidate(update, botStorage);
-        botStorage.removeSession(botUser.getId());
-        BotUtil.sessionValidate(update, botStorage);
-
-        response.setText(user.getFirstName() + ", привет! Я телеграмм бот, твой персональный помощник.");
+        var response = BotUtil.createDefaultSendMessage(session.getId(), message);
+        response.setReplyMarkup(Keyboards.menuKeyboard());
 
         return response;
     }
 
-    private SendMessage registrationCommand(Update update) {
-        User user = BotUtil.getUser(update);
-
-        if (botStorage.containsBotUser(user.getId()) && botStorage.getBotUsers(user.getId()).isRegistration()) {
-            return SendMessage.builder()
-                    .chatId(user.getId())
-                    .text("Вы уже зарегистрированы")
-                    .build();
-        }
-
-        var response = startCommand(update);
-        var session = botStorage.getSession(user.getId());
-
-        session.setState(BotState.ENTER_EMAIL);
-        botStorage.saveSession(session);
-
-        response.setText("Введите свой email:");
-        return response;
-    }
-
-    private SendMessage helpCommand(Update update) {
-        var text = """
-                Список доступных команд:
-                                
-                /start - начать работу с ботом
-                /help - показать список команд
-                /registration - регистрация в боте"
-                                
-                Чтобы воспользоваться полным функционалом
-                бота пройдите регистрацию.
-                """;
-
-        return defaultCommand(update, text);
-    }
-
-    private SendMessage errorCommand(Update update) {
-        var text = "Неизвестная команда. Введите /help, чтобы увидеть список доступных команд.";
-
-        return defaultCommand(update, text);
-    }
-
-    private SendMessage defaultCommand(Update update, String text) {
-        var response = startCommand(update);
-        response.setText(text);
-
-        return response;
+    private SendMessage errorCommand(BotSession session) {
+        var message = "Неизвестная команда. Введите /help, чтобы увидеть список доступных команд.";
+        return BotUtil.createDefaultSendMessage(session.getId(), message);
     }
 }

@@ -7,8 +7,7 @@ import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import ru.malakhov.telegrambot.handler.CallbackHandler;
-import ru.malakhov.telegrambot.handler.MessageHandler;
+import ru.malakhov.telegrambot.handler.MainHandler;
 
 import javax.annotation.PostConstruct;
 import java.time.LocalDateTime;
@@ -19,39 +18,27 @@ public class TelegramBot extends TelegramLongPollingBot {
     @Value("${bot.name}")
     private String botName;
 
-    private final MessageHandler messageHandler;
-    private final CallbackHandler callbackHandler;
+    private final MainHandler mainHandler;
 
     public TelegramBot(@Value("${bot.token}") String botToken,
-                       MessageHandler messageHandler,
-                       CallbackHandler callbackHandler) {
+                       MainHandler mainHandler) {
         super(botToken);
-        this.messageHandler = messageHandler;
-        this.callbackHandler = callbackHandler;
+        this.mainHandler = mainHandler;
     }
 
     @PostConstruct
     private void init() {
-        messageHandler.init(this);
-        callbackHandler.init(this);
+        mainHandler.init(this);
     }
 
     @Override
     public void onUpdateReceived(Update update) {
         if (update != null) {
-            if (update.hasMessage()) {
-                var message = update.getMessage();
-
-                if (message.hasText()) {
-                    messageHandler.handling(update);
-                }
+            if (update.hasMessage() && update.getMessage().hasText() || update.hasCallbackQuery()) {
+                mainHandler.handling(update);
+            } else {
+                log.error("Update is null [" + LocalDateTime.now() + "]");
             }
-
-            if (update.hasCallbackQuery()) {
-                callbackHandler.handling(update);
-            }
-        } else {
-            log.error("Update is null [" + LocalDateTime.now() + "]");
         }
     }
 
