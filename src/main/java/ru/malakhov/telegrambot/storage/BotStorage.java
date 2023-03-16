@@ -4,6 +4,7 @@ import lombok.Data;
 import org.springframework.stereotype.Component;
 import ru.malakhov.telegrambot.bot.BotSession;
 import ru.malakhov.telegrambot.entity.BotUser;
+import ru.malakhov.telegrambot.exception.EmptyBotUserException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -21,18 +22,13 @@ public class BotStorage {
         return Optional.empty();
     }
 
-    public void saveSession(BotSession session) {
-//        if(session.getBotUser() == null) throw new RuntimeException();
+    public void saveSession(BotSession session) throws EmptyBotUserException {
+        if(session.getBotUser() == null) throw new EmptyBotUserException("BotUser is null!");
         botSessions.put(session.getBotUser().getId(), session);
     }
 
     public void removeSession(long userId) {
         botSessions.remove(userId);
-    }
-
-
-    public boolean containsSession(long userId) {
-        return botSessions.containsKey(userId);
     }
 
     public Optional<BotUser> getBotUser(long userId) {
@@ -43,9 +39,5 @@ public class BotStorage {
 
     public void saveBotUser(BotUser botUser) {
         botUsers.put(botUser.getId(), botUser);
-    }
-
-    public boolean containsBotUser(long userId) {
-        return botUsers.containsKey(userId);
     }
 }

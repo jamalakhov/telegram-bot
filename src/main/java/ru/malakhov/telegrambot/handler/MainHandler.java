@@ -7,6 +7,7 @@ import org.telegram.telegrambots.meta.api.objects.User;
 import ru.malakhov.telegrambot.bot.BotSession;
 import ru.malakhov.telegrambot.bot.TelegramBot;
 import ru.malakhov.telegrambot.entity.BotUser;
+import ru.malakhov.telegrambot.exception.EmptyBotUserException;
 import ru.malakhov.telegrambot.storage.BotStorage;
 
 import java.time.LocalDateTime;
@@ -35,7 +36,7 @@ public class MainHandler {
         callbackHandler.init(bot);
     }
 
-    public void handling(Update update) {
+    public void handling(Update update){
         User user;
 
         if (update.hasMessage()) {
@@ -77,7 +78,12 @@ public class MainHandler {
 
         if (botUser.isRegistration()) session.setState(MAIN);
 
-        botStorage.saveSession(session);
+        try {
+            botStorage.saveSession(session);
+        } catch (EmptyBotUserException e) {
+            log.error(e.toString());
+        }
+
         return session;
     }
 

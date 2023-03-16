@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import ru.malakhov.telegrambot.bot.BotSession;
+import ru.malakhov.telegrambot.exception.EmptyBotUserException;
 
 @Slf4j
 @Component

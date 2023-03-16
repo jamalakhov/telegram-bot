@@ -1,9 +1,11 @@
 package ru.malakhov.telegrambot.handler;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import ru.malakhov.telegrambot.bot.BotSession;
 import ru.malakhov.telegrambot.bot.enums.BotState;
+import ru.malakhov.telegrambot.exception.EmptyBotUserException;
 import ru.malakhov.telegrambot.kyeboard.Keyboards;
 import ru.malakhov.telegrambot.storage.BotStorage;
 import ru.malakhov.telegrambot.util.BotUtil;
@@ -12,6 +14,7 @@ import java.time.LocalDateTime;
 
 import static ru.malakhov.telegrambot.bot.enums.BotState.*;
 
+@Slf4j
 @Component
 public class CommandHandler {
     private final BotStorage botStorage;
@@ -23,15 +26,26 @@ public class CommandHandler {
     public SendMessage handling(BotSession botSession) {
         var command = botSession.getBotCommand().trim().split(" ")[0];
 
-        return switch (command) {
-            case "/start" -> startCommand(botSession);
-            case "/help" -> helpCommand(botSession);
-            case "/confirm" -> confirmCommand(botSession);
-            case "/change" -> changeCommand(botSession);
-            case "/cancel" -> cancelCommand(botSession);
-            case "/registration" -> registrationCommand(botSession);
-            default -> errorCommand(botSession);
-        };
+        var result = SendMessage.builder()
+                .chatId(botSession.getId())
+                .text("Неизвестная ошибка. Попробуйте снова.")
+                .build();
+
+        try {
+            result = switch (command) {
+                case "/start" -> startCommand(botSession);
+                case "/help" -> helpCommand(botSession);
+                case "/confirm" -> confirmCommand(botSession);
+                case "/change" -> changeCommand(botSession);
+                case "/cancel" -> cancelCommand(botSession);
+                case "/registration" -> registrationCommand(botSession);
+                default -> errorCommand(botSession);
+            };
+        } catch (EmptyBotUserException e) {
+            log.error(e.toString());
+        }
+
+        return result;
     }
 
 
@@ -52,7 +66,7 @@ public class CommandHandler {
         return response;
     }
 
-    private SendMessage registrationCommand(BotSession session) {
+    private SendMessage registrationCommand(BotSession session) throws EmptyBotUserException {
         var message = "";
         var response = BotUtil.createDefaultSendMessage(session.getId(), message);
 
@@ -83,7 +97,7 @@ public class CommandHandler {
         return BotUtil.createDefaultSendMessage(session.getId(), message);
     }
 
-    private SendMessage cancelCommand(BotSession session) {
+    private SendMessage cancelCommand(BotSession session) throws EmptyBotUserException {
         var message = "Действие отменено";
 
         if (session.getBotUser().isRegistration()) {
@@ -96,7 +110,7 @@ public class CommandHandler {
         return BotUtil.createDefaultSendMessage(session.getId(), message);
     }
 
-    private SendMessage changeCommand(BotSession session) {
+    private SendMessage changeCommand(BotSession session) throws EmptyBotUserException {
         var message = "Введите свой email";
         var botUser = session.getBotUser();
 
@@ -112,7 +126,7 @@ public class CommandHandler {
         return BotUtil.createDefaultSendMessage(session.getId(), message);
     }
 
-    private SendMessage confirmCommand(BotSession session) {
+    private SendMessage confirmCommand(BotSession session) throws EmptyBotUserException {
         var message = "Ваши данные успешно добавлены";
         var botUser = session.getBotUser();
 
